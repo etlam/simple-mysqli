@@ -1208,12 +1208,15 @@ final class Result implements \Countable, \SeekableIterator, \ArrayAccess
             $totalColumnsTmp = $this->doctrinePdoStmt->columnCount();
             for ($counterTmp = 0; $counterTmp < $totalColumnsTmp; $counterTmp++) {
                 $metadataTmp = $this->doctrinePdoStmt->getColumnMeta($counterTmp);
+                if ($metadataTmp === false) {
+                    $metadataTmp = [];
+                }
                 $fieldTmp = new \stdClass();
                 foreach ($metadataTmp as $metadataTmpKey => $metadataTmpValue) {
                     $fieldTmp->{$metadataTmpKey} = $metadataTmpValue;
                 }
 
-                $typeNativeTmp = 'MYSQL_TYPE_' . $metadataTmp['native_type'];
+                $typeNativeTmp = 'MYSQL_TYPE_' . ($metadataTmp['native_type'] ?? '');
                 $typeTmp = $THIS_CLASS_TMP->getConstant($typeNativeTmp);
                 if ($typeTmp) {
                     $fieldTmp->type = $typeTmp;

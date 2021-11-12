@@ -309,7 +309,8 @@ class Helper
             return '';
         }
 
-        return $MYSQL_CLIENT_VERSION_CACHE[$cacheKey] = (string) \mysqli_get_client_version($mysqli_link);
+        /** @noinspection PhpParamsInspection - false-positiv | https://github.com/voku/simple-mysqli/issues/50 */
+        return $MYSQL_CLIENT_VERSION_CACHE[$cacheKey] = (string) \mysqli_get_client_version();
     }
 
     /**
@@ -390,7 +391,10 @@ class Helper
             $databaseName = $dbConnection->quote_string(\trim($databaseName)) . '.';
         }
 
-        $sql = 'SHOW COLUMNS FROM ' . $databaseName . $dbConnection->escape($table);
+        /** @var string $table */
+        $table = $dbConnection->escape($table);
+
+        $sql = 'SHOW COLUMNS FROM ' . $databaseName . $table;
         $result = $dbConnection->query($sql);
 
         if ($result instanceof Result && $result->num_rows > 0) {

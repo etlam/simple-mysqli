@@ -30,7 +30,7 @@ final class DB
     private $connected = false;
 
     /**
-     * @var array
+     * @var string[]
      */
     private $mysqlDefaultTimeFunctions;
 
@@ -450,6 +450,7 @@ final class DB
                     }
 
                     if ($firstValue === null) {
+                        /** @var float|int|string $firstValue */
                         $firstValue = $_value[$oldKey];
                     }
                 }
@@ -549,6 +550,7 @@ final class DB
                 continue;
             }
 
+            /** @var float|int|string $replacement */
             $replacement = $this->secure($param);
 
             unset($params[$key]);
@@ -606,6 +608,7 @@ final class DB
                 continue;
             }
 
+            /** @var float|int|string $replacement */
             $replacement = $this->secure($param);
 
             unset($params[$name]);
@@ -802,7 +805,11 @@ final class DB
         \mysqli_report(\MYSQLI_REPORT_STRICT);
 
         try {
-            $this->mysqli_link = \mysqli_init();
+            $mysqli_link = \mysqli_init();
+            if ($mysqli_link === false) {
+                throw new DBConnectException('Error connecting to mysql server: mysqli_init error');
+            }
+            $this->mysqli_link = $mysqli_link;
 
             if (Helper::isMysqlndIsUsed()) {
                 \mysqli_options($this->mysqli_link, \MYSQLI_OPT_INT_AND_FLOAT_NATIVE, true);
@@ -917,6 +924,7 @@ final class DB
         }
 
         if (\is_string($where)) {
+            /** @var string $WHERE */
             $WHERE = $this->escape($where, false);
         } elseif (\is_array($where)) {
             $WHERE = $this->_parseArrayPair($where, 'AND');
@@ -991,7 +999,7 @@ final class DB
     /**
      * Escape: Use "mysqli_real_escape_string" and clean non UTF-8 chars + some extra optional stuff.
      *
-     * @param mixed     $var           bool: convert into "integer"<br />
+     * @param array<scalar>|scalar|null $var           bool: convert into "integer"<br />
      *                                 int: int (don't change it)<br />
      *                                 float: float (don't change it)<br />
      *                                 null: null (don't change it)<br />
@@ -1003,7 +1011,7 @@ final class DB
      *                                 <strong>true</strong> => Convert to string var1,var2,var3...<br />
      *                                 <strong>null</strong> => Convert the array into null, every time.
      *
-     * @return mixed
+     * @return array<float|int|string>|float|int|string
      */
     public function escape(
         $var = '',
@@ -1025,6 +1033,10 @@ final class DB
         $type = \gettype($var);
 
         if ($type === 'object') {
+            /** @noinspection PhpSillyAssignmentInspection */
+            /** @var object $var */
+            $var = $var;
+
             if ($var instanceof \DateTimeInterface) {
                 $var = $var->format('Y-m-d H:i:s');
                 $type = 'string';
@@ -1036,6 +1048,10 @@ final class DB
 
         switch ($type) {
             case 'boolean':
+                /** @noinspection PhpSillyAssignmentInspection */
+                /** @var bool $var */
+                $var = $var;
+
                 $var = (int) $var;
 
                 break;
@@ -1045,6 +1061,10 @@ final class DB
                 break;
 
             case 'string':
+                /** @noinspection PhpSillyAssignmentInspection */
+                /** @var string $var */
+                $var = $var;
+
                 if ($stripe_non_utf8) {
                     $var = UTF8::cleanup($var);
                 }
@@ -1081,7 +1101,9 @@ final class DB
                 } else {
                     $varCleaned = [];
                     foreach ((array) $var as $key => $value) {
+                        /** @var string $key */
                         $key = $this->escape($key, $stripe_non_utf8, $html_entity_decode);
+                        /** @var string $value */
                         $value = $this->escape($value, $stripe_non_utf8, $html_entity_decode);
 
                         /** @noinspection OffsetOperationsInspection */
@@ -1111,6 +1133,10 @@ final class DB
             default:
                 throw new \InvalidArgumentException(\sprintf('Not supported value "%s" of type %s.', \print_r($var, true), $type));
         }
+
+        /** @noinspection PhpSillyAssignmentInspection */
+        /** @var array<float|int|string>|float|int|string $var */
+        $var = $var;
 
         return $var;
     }
@@ -1593,7 +1619,7 @@ final class DB
             return false;
         }
 
-        if (!$sql || $sql === '') {
+        if (!$sql) {
             $this->debug->displayError('Can not execute an empty query.', false);
 
             return false;
@@ -1657,7 +1683,12 @@ final class DB
                     &&
                     $queryException instanceof \Doctrine\DBAL\Query\QueryException
                 ) {
-                    return $this->queryErrorHandling($queryException->getMessage(), $queryException->getCode(), $sql, false, true);
+                    $errorCode = $queryException->getCode();
+                    if (!\is_numeric($errorCode)) {
+                        $errorCode = 1;
+                    }
+
+                    return $this->queryErrorHandling($queryException->getMessage(), (int) $errorCode, $sql, false, true);
                 }
             }
         } elseif ($this->mysqli_link) {
@@ -1688,7 +1719,7 @@ final class DB
                 // log the error query
                 $this->debug->logQuery($sql, $query_duration, 0, true);
 
-                return $this->queryErrorHandling(\mysqli_error($this->mysqli_link), \mysqli_errno($this->mysqli_link), $sql, false, true);
+                return $this->queryErrorHandling(\mysqli_error($this->mysqli_link) ?? '', \mysqli_errno($this->mysqli_link), $sql, false, true);
             }
         } else {
 
@@ -1798,6 +1829,7 @@ final class DB
         /** @noinspection SuspiciousAssignmentsInspection */
         $query = \array_shift($args);
         $query = \str_replace('?', '%s', $query);
+        /** @var string[] $args */
         $args = \array_map(
             [
                 $db,
@@ -2001,11 +2033,16 @@ final class DB
         $this->debug->logQuery($sql, $query_duration, 0, true);
 
         if ($queryException) {
-            return $this->queryErrorHandling($queryException->getMessage(), $queryException->getCode(), $sql, $params);
+            $errorCode = $queryException->getCode();
+            if (!\is_numeric($errorCode)) {
+                $errorCode = 1;
+            }
+
+            return $this->queryErrorHandling($queryException->getMessage(), (int) $errorCode, $sql, $params);
         }
 
         if ($this->mysqli_link) {
-            return $this->queryErrorHandling(\mysqli_error($this->mysqli_link), \mysqli_errno($this->mysqli_link), $sql, $params);
+            return $this->queryErrorHandling(\mysqli_error($this->mysqli_link) ?? '', \mysqli_errno($this->mysqli_link), $sql, $params);
         }
 
         return false;
@@ -2022,7 +2059,7 @@ final class DB
             $warningTmp = $this->mysqli_link->get_warnings();
             do {
                 $warningTmpStr = \print_r($warningTmp, true);
-                // e.g.: sql mode 'NO_qqqAUTO_CREATE_USER' is deprecated)
+                // e.g.: sql mode 'NO_AUTO_CREATE_USER' is deprecated)
                 if (
                     \strpos($warningTmpStr, 'is deprecated') !== false
                     &&
@@ -2069,7 +2106,7 @@ final class DB
      * @throws QueryException
      * @throws DBGoneAwayException
      *
-     * @return false|mixed
+     * @return bool|false|int|Result|string
      */
     private function queryErrorHandling(
         string $errorMessage,
@@ -2128,17 +2165,20 @@ final class DB
     /**
      * Quote && Escape e.g. a table name string.
      *
-     * @param mixed $str
+     * @param string $str
      *
      * @return string
      */
     public function quote_string($str): string
     {
+        /** @var float|int|string $str */
+        $str = $this->escape($str, false);
+
         $str = \str_replace(
             '`',
             '``',
             \trim(
-                (string) $this->escape($str, false),
+                (string) $str,
                 '`'
             )
         );
@@ -2296,12 +2336,12 @@ final class DB
      * 1. return null
      * </p>
      *
-     * @param mixed     $var
+     * @param array<scalar>|scalar|null     $var
      * @param bool|null $convert_array <strong>false</strong> => Keep the array.<br />
      *                                 <strong>true</strong> => Convert to string var1,var2,var3...<br />
      *                                 <strong>null</strong> => Convert the array into null, every time.
      *
-     * @return mixed
+     * @return array<int|string, array|float|int|string>|float|int|string
      */
     public function secure($var, $convert_array = true)
     {
@@ -2315,9 +2355,10 @@ final class DB
             } else {
                 $varCleaned = [];
                 foreach ((array) $var as $key => $value) {
+                    /** @var string $key */
                     $key = $this->escape($key, false, false, $convert_array);
+                    /** @var float|int|string $value */
                     $value = $this->secure($value);
-
                     /** @noinspection OffsetOperationsInspection */
                     $varCleaned[$key] = $value;
                 }
@@ -2371,7 +2412,7 @@ final class DB
      * Execute a "select"-query.
      *
      * @param string       $table
-     * @param array|string $where
+     * @param string|string[] $where
      * @param string|null  $databaseName <p>Use <strong>null</strong> if you will use the current database.</p>
      *
      * @throws QueryException
@@ -2394,6 +2435,7 @@ final class DB
         }
 
         if (\is_string($where)) {
+            /** @var string $WHERE */
             $WHERE = $this->escape($where, false);
         } elseif (\is_array($where)) {
             $WHERE = $this->_parseArrayPair($where, 'AND');
@@ -2759,6 +2801,7 @@ final class DB
         //var_dump($SET);
 
         if (\is_string($where)) {
+            /** @var string $WHERE */
             $WHERE = $this->escape($where, false);
         } elseif (\is_array($where)) {
             $WHERE = $this->_parseArrayPair($where, 'AND');

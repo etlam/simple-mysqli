@@ -98,6 +98,7 @@ final class Prepare extends \mysqli_stmt
         $type = $param['type']; // 'i', 'b', 's', 'd'
         $value = $param['value'];
 
+        /** @var scalar $value */
         $value = $this->_db->escape($value);
 
         if ($type === 's') {
@@ -114,9 +115,9 @@ final class Prepare extends \mysqli_stmt
     }
 
     /**
-     * @return int
+     * @return int|string
      */
-    public function affected_rows(): int
+    public function affected_rows()
     {
         return $this->affected_rows;
     }
@@ -298,7 +299,7 @@ final class Prepare extends \mysqli_stmt
             return false;
         }
 
-        if (!$query || $query === '') {
+        if (!$query) {
             $this->_debug->displayError('Can not prepare an empty query.', false);
 
             return false;
@@ -342,9 +343,9 @@ final class Prepare extends \mysqli_stmt
     }
 
     /**
-     * @return int
+     * @return int|string
      */
-    public function insert_id(): int
+    public function insert_id()
     {
         return $this->insert_id;
     }
