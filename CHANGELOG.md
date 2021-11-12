@@ -1,6 +1,10 @@
 Changelog
 =========
 
+8.2.10 (2021-11-12)
+
+- "Helper" -> fix for php8
+
 8.2.9 (2020-08-23)
 
 - "DB" -> ignore more invalid mysql warnings (fix typo)
