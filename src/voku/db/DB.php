@@ -334,7 +334,7 @@ final class DB
             &&
             ($defaultSocket = @\ini_get('mysqli.default_socket'))
             &&
-            \is_readable($defaultSocket)
+            @\is_readable($defaultSocket)
         ) {
             $this->socket = $defaultSocket;
         }
